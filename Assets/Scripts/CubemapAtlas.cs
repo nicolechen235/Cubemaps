@@ -89,21 +89,18 @@ public class CubemapAtlas : MonoBehaviour {
         albedoCubemapRT_256.enableRandomWrite = true;
         albedoCubemapRT_256.Create();
 
+        Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, new Vector3(0, 0, 0),
+        Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
+        cubemapCamera.fieldOfView = 90;
+        cubemapCamera.targetTexture = albedoCubemapRT_256;
+        cubemapCamera.clearFlags = CameraClearFlags.Color;
+        cubemapCamera.GetComponent<AudioListener>().enabled = false;
         foreach (Transform t in CubemapCameraPosition)
         {
-            Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, t.position,
-            Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
-
-                    //Graphics.CopyTexture(
-                    //    c, faceIndex, 0, 0, 0, cubemapSize, cubemapSize,
-                    //    dstTexture, 0, 0, faceIndex * cubemapSize, cubeIndex * cubemapSize);
             for (int faceIndex = 0; faceIndex < 6; faceIndex++) {
+                cubemapCamera.transform.position = t.position;
                 cubemapCamera.transform.LookAt(t.position + cubemapCameraStructs[faceIndex].lookAt, cubemapCameraStructs[faceIndex].up);
-                cubemapCamera.fieldOfView = 90;
-                cubemapCamera.targetTexture = albedoCubemapRT_256;
                 cubemapCamera.rect = new Rect(new Vector2(faceIndex * 1.0f / 6.0f, cubemapIndex * 1.0f / cubemapNum), new Vector2(1.0f / 6.0f, unitUVSize));
-                cubemapCamera.GetComponent<AudioListener>().enabled = false;
-                cubemapCamera.clearFlags = CameraClearFlags.Depth;
                 cubemapCamera.Render();
             }
             cubemapIndex++; 
