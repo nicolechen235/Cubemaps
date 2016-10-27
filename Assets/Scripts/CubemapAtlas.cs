@@ -12,11 +12,11 @@ public class CubemapAtlas : MonoBehaviour {
     private const int MAX_TEXTURE_SIZE = 4096;
 
     private struct CubemapCameraStruct {
-        public Vector3 up ;
         public Vector3 lookAt;
-        public CubemapCameraStruct(Vector3 up, Vector3 lookAt) {
-            this.up = up;
+        public Vector3 up ;
+        public CubemapCameraStruct(Vector3 lookAt, Vector3 up) {
             this.lookAt = lookAt;
+            this.up = up;
         }
     }
 
@@ -24,6 +24,10 @@ public class CubemapAtlas : MonoBehaviour {
         
         new CubemapCameraStruct(new Vector3(1, 0, 0), new Vector3(0, 1, 0)), // +X
         new CubemapCameraStruct(new Vector3(-1, 0, 0), new Vector3(0, 1, 0)), // -X 
+        new CubemapCameraStruct(new Vector3(0, 1, 0), new Vector3(0, 0, -1)), // +Y
+        new CubemapCameraStruct(new Vector3(0, -1, 0), new Vector3(0, 0, 1)), // -Y 
+        new CubemapCameraStruct(new Vector3(0, 0, 1), new Vector3(0, 1, 0)), // +Z
+        new CubemapCameraStruct(new Vector3(0, 0, -1), new Vector3(0, 1, 0)), // -Z 
 
     };
 
@@ -89,16 +93,17 @@ public class CubemapAtlas : MonoBehaviour {
         {
             Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, t.position,
             Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
-            cubemapCamera.fieldOfView = 90;
 
                     //Graphics.CopyTexture(
                     //    c, faceIndex, 0, 0, 0, cubemapSize, cubemapSize,
                     //    dstTexture, 0, 0, faceIndex * cubemapSize, cubeIndex * cubemapSize);
-            for (int faceIndex = 0; faceIndex < 2/*6*/; faceIndex++) {
+            for (int faceIndex = 0; faceIndex < 6; faceIndex++) {
                 cubemapCamera.transform.LookAt(t.position + cubemapCameraStructs[faceIndex].lookAt, cubemapCameraStructs[faceIndex].up);
+                cubemapCamera.fieldOfView = 90;
                 cubemapCamera.targetTexture = albedoCubemapRT_256;
                 cubemapCamera.rect = new Rect(new Vector2(faceIndex * 1.0f / 6.0f, cubemapIndex * 1.0f / cubemapNum), new Vector2(1.0f / 6.0f, unitUVSize));
                 cubemapCamera.GetComponent<AudioListener>().enabled = false;
+                cubemapCamera.clearFlags = CameraClearFlags.Depth;
                 cubemapCamera.Render();
             }
             cubemapIndex++; 
