@@ -3,7 +3,6 @@ using UnityEngine.Rendering;
 
 public class CubemapAtlas : MonoBehaviour {
 
-
     public Transform[] CubemapCameraTransformFromEditor;
 
     private RenderTexture albedoCubemapRT_64;
@@ -67,8 +66,6 @@ public class CubemapAtlas : MonoBehaviour {
 
         CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref albedoRT, RenderTextureFormat.ARGB32);
 
-        RenderTexture specularRT = null;
-        CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref specularRT, RenderTextureFormat.ARGB32);
         // https://docs.unity3d.com/Manual/RenderTech-DeferredShading.html
         // RT2, ARGB2101010 World space normal buffer, 
         CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref normalRT, RenderTextureFormat.ARGB2101010);
@@ -78,15 +75,11 @@ public class CubemapAtlas : MonoBehaviour {
 
         Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, new Vector3(0, 0, 0),
         Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
-        //cubemapCamera.renderingPath = RenderingPath.DeferredShading;
-
+        cubemapCamera.GetComponent<AudioListener>().enabled = false;
         cubemapCamera.fieldOfView = 90;
         cubemapCamera.targetTexture = albedoRT;
-        RenderBuffer[] TargetBuffers = { albedoRT.colorBuffer, specularRT.colorBuffer , normalRT.colorBuffer };
-        //cubemapCamera.SetTargetBuffers(TargetBuffers, albedoRT.depthBuffer);
-        cubemapCamera.clearFlags = CameraClearFlags.Depth;
-        cubemapCamera.GetComponent<AudioListener>().enabled = false;
-        Graphics.SetRenderTarget(TargetBuffers, albedoCubemapRT_64.depthBuffer);
+
+        cubemapCamera.clearFlags = CameraClearFlags.Color;
         foreach (Vector3 cameraPos in cubemapCameraPositions)
         {
             for (int faceIndex = 0; faceIndex < 6; faceIndex++) {
