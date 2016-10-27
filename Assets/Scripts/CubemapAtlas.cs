@@ -3,10 +3,10 @@ using UnityEngine.Rendering;
 
 public class CubemapAtlas : MonoBehaviour{
 
-    public Cubemap[] Cubemaps;
+
+    public Transform[] CubemapCameraPosition;
 
     private RenderTexture albedoCubemapRT_256;
-    private RenderTexture albedoCubemapRT_128;
     public Material material;
 
     private const int MAX_TEXTURE_SIZE = 4096;
@@ -17,7 +17,10 @@ public class CubemapAtlas : MonoBehaviour{
 
         material.SetTexture("_MainTex", albedoCubemapRT_256);
 	}
-	
+
+    void CreateAtlasFromCubemapCamera(Transform[] cubemapCameraPosition, int cameraNum)
+    {
+    }
     void CreateAtlasFromCubemaps(Cubemap[] cubemaps, int cubemapNum, int cubemapSize, RenderTextureFormat format, ref RenderTexture dstTexture)
     {
         if (cubemapNum <= 0) {
@@ -53,25 +56,23 @@ public class CubemapAtlas : MonoBehaviour{
 
     void CreateAtlas() {
         Cubemap[] cubemaps_256 = new Cubemap[MAX_TEXTURE_SIZE / 256];
-        Cubemap[] cubemaps_128 = new Cubemap[MAX_TEXTURE_SIZE / 128];
 
         int cubemapNum_256 = 0;
-        int cubemapNum_128 = 0;
-        foreach (Cubemap c in Cubemaps) {
-            if (c.width == 256) {
-                cubemaps_256[cubemapNum_256++] = c;
-            }
-            else if(c.width == 128) {
-                cubemaps_128[cubemapNum_128++] = c;
-            }
-            else {
-                Debug.LogError("Group Only for size 256 , 128 , 64 now.");
-                Debug.Assert(false);
-            }
+        foreach (Transform t in CubemapCameraPosition)
+        {
+            Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, t.position,
+                Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
+            cubemapCamera.GetComponent<AudioListener>().enabled = false;
+            cubemapCamera.targetDisplay = 1;
+
+            Cubemap c = new Cubemap(256, TextureFormat.ARGB32, false);
+            cubemapCamera.RenderToCubemap(c);
+            cubemaps_256[cubemapNum_256++] = c;
+
         }
 
+
         CreateAtlasFromCubemaps(cubemaps_256, cubemapNum_256, 256, RenderTextureFormat.ARGB32, ref albedoCubemapRT_256);
-        CreateAtlasFromCubemaps(cubemaps_128, cubemapNum_128, 128, RenderTextureFormat.ARGB32, ref albedoCubemapRT_128);
 
     }
 }
