@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Rendering;
 
-public class CubemapAtlas : MonoBehaviour{
+public class CubemapAtlas : MonoBehaviour {
 
 
     public Transform[] CubemapCameraPosition;
@@ -11,8 +11,24 @@ public class CubemapAtlas : MonoBehaviour{
 
     private const int MAX_TEXTURE_SIZE = 4096;
 
+    private struct CubemapCameraStruct {
+        public Vector3 up ;
+        public Vector3 lookAt;
+        public CubemapCameraStruct(Vector3 up, Vector3 lookAt) {
+            this.up = up;
+            this.lookAt = lookAt;
+        }
+    }
 
-	void Start () {
+    private readonly CubemapCameraStruct[] cubemapCameraStructs = {
+        
+        new CubemapCameraStruct(new Vector3(1, 0, 0), new Vector3(0, 1, 0)), // +X
+        new CubemapCameraStruct(new Vector3(-1, 0, 0), new Vector3(0, 1, 0)), // -X 
+
+    };
+
+
+    void Start () {
         CreateAtlas();
 
         material.SetTexture("_MainTex", albedoCubemapRT_256);
@@ -57,22 +73,38 @@ public class CubemapAtlas : MonoBehaviour{
     void CreateAtlas() {
         Cubemap[] cubemaps_256 = new Cubemap[MAX_TEXTURE_SIZE / 256];
 
-        int cubemapNum_256 = 0;
+        int cubemapSize = 256;
+        int cubemapIndex = 0;
+
+        int cubemapNum = CubemapCameraPosition.Length;
+        int atlasWidth = 6 * cubemapSize;
+        int atlasHeight = cubemapNum * cubemapSize;
+
+        float unitUVSize = 1.0f / cubemapNum;
+        albedoCubemapRT_256= new RenderTexture(atlasWidth, atlasHeight, 0, RenderTextureFormat.ARGB32);
+        albedoCubemapRT_256.enableRandomWrite = true;
+        albedoCubemapRT_256.Create();
+
         foreach (Transform t in CubemapCameraPosition)
         {
             Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, t.position,
-                Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
-            cubemapCamera.GetComponent<AudioListener>().enabled = false;
-            cubemapCamera.targetDisplay = 1;
+            Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
+            cubemapCamera.fieldOfView = 90;
 
-            Cubemap c = new Cubemap(256, TextureFormat.ARGB32, false);
-            cubemapCamera.RenderToCubemap(c);
-            cubemaps_256[cubemapNum_256++] = c;
-
+                    //Graphics.CopyTexture(
+                    //    c, faceIndex, 0, 0, 0, cubemapSize, cubemapSize,
+                    //    dstTexture, 0, 0, faceIndex * cubemapSize, cubeIndex * cubemapSize);
+            for (int faceIndex = 0; faceIndex < 2/*6*/; faceIndex++) {
+                cubemapCamera.transform.LookAt(t.position + cubemapCameraStructs[faceIndex].lookAt, cubemapCameraStructs[faceIndex].up);
+                cubemapCamera.targetTexture = albedoCubemapRT_256;
+                cubemapCamera.rect = new Rect(new Vector2(faceIndex * 1.0f / 6.0f, cubemapIndex * 1.0f / cubemapNum), new Vector2(1.0f / 6.0f, unitUVSize));
+                cubemapCamera.GetComponent<AudioListener>().enabled = false;
+                cubemapCamera.Render();
+            }
+            cubemapIndex++; 
         }
 
-
-        CreateAtlasFromCubemaps(cubemaps_256, cubemapNum_256, 256, RenderTextureFormat.ARGB32, ref albedoCubemapRT_256);
+        //CreateAtlasFromCubemaps(cubemaps_256, cubemapNum_256, cubemapSize, RenderTextureFormat.ARGB32, ref albedoCubemapRT_256);
 
     }
 }
