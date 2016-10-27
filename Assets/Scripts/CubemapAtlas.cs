@@ -4,9 +4,10 @@ using UnityEngine.Rendering;
 public class CubemapAtlas : MonoBehaviour {
 
 
-    public Transform[] CubemapCameraPosition;
+    public Transform[] CubemapCameraTransformFromEditor;
 
-    private RenderTexture albedoCubemapRT_256;
+    private RenderTexture albedoCubemapRT_64;
+    private RenderTexture normalCubemapRT_64;
     public Material material;
 
     private const int MAX_TEXTURE_SIZE = 4096;
@@ -33,80 +34,69 @@ public class CubemapAtlas : MonoBehaviour {
 
 
     void Start () {
-        CreateAtlas();
+        CreateAtlas(CubemapCameraTransformFromEditor, 64, CubemapCameraTransformFromEditor.Length, ref albedoCubemapRT_64, ref normalCubemapRT_64);
 
-        material.SetTexture("_MainTex", albedoCubemapRT_256);
+        material.SetTexture("_MainTex", albedoCubemapRT_64);
 	}
 
-    void CreateAtlasFromCubemapCamera(Transform[] cubemapCameraPosition, int cameraNum)
+    void CreateCubemapAtalsRenderTarget(int cubemapSize, int cubemapNum, ref RenderTexture rt, RenderTextureFormat format)
     {
-    }
-    void CreateAtlasFromCubemaps(Cubemap[] cubemaps, int cubemapNum, int cubemapSize, RenderTextureFormat format, ref RenderTexture dstTexture)
-    {
-        if (cubemapNum <= 0) {
-            return;
-        }
-
         int atlasWidth = 6 * cubemapSize;
         int atlasHeight = cubemapNum * cubemapSize;
-        
-        dstTexture = new RenderTexture(atlasWidth, atlasHeight, 0, format);
-        dstTexture.enableRandomWrite = true;
-        dstTexture.Create();
-
-        for (int cubeIndex = 0; cubeIndex < cubemapNum; cubeIndex++) {
-            Cubemap c = cubemaps[cubeIndex];
-            for (int faceIndex = 0; faceIndex < 6; faceIndex++)
-            {
-                if ((SystemInfo.copyTextureSupport & CopyTextureSupport.TextureToRT) != 0)
-                {
-                    Graphics.CopyTexture(
-                        c, faceIndex, 0, 0, 0, cubemapSize, cubemapSize,
-                        dstTexture, 0, 0, faceIndex * cubemapSize, cubeIndex * cubemapSize);
-                    
-                }
-                else
-                {
-                    // not implement yet
-                    Debug.Assert(false);
-                }
-            }
-        }
+        rt = new RenderTexture(atlasWidth, atlasHeight, 0, format);
+        rt.enableRandomWrite = true;
+        rt.Create();
     }
 
-    void CreateAtlas() {
-        Cubemap[] cubemaps_256 = new Cubemap[MAX_TEXTURE_SIZE / 256];
+    void CreateAtlas(Transform[] cubemapCameraTransforms, int cubemapSizeGBuffer, int cubemapNum, ref RenderTexture albeodoRT, ref RenderTexture normalRT)
+    {
+        Vector3[] positions = new Vector3[cubemapNum];
+        for (int c_i = 0; c_i < cubemapNum; c_i++)
+        {
+            Debug.Assert(cubemapCameraTransforms[c_i] != null);
+            positions[c_i] = cubemapCameraTransforms[c_i].position;
+        }
 
-        int cubemapSize = 256;
-        int cubemapIndex = 0;
+        CreateAtlas(positions, cubemapSizeGBuffer, cubemapNum, ref albeodoRT, ref normalRT);
+    }
 
-        int cubemapNum = CubemapCameraPosition.Length;
-        int atlasWidth = 6 * cubemapSize;
-        int atlasHeight = cubemapNum * cubemapSize;
+    void CreateAtlas(Vector3[] cubemapCameraPositions, int cubemapSizeGBuffer, int cubemapNum, ref RenderTexture albedoRT, ref RenderTexture normalRT)
+    {
+        Debug.Assert(cubemapNum > 0, "Please add camera transform.");
+        Debug.Assert(cubemapNum * cubemapSizeGBuffer < MAX_TEXTURE_SIZE, "Can not create such big atlas, with size: " + cubemapNum + "CubemapSize:" + cubemapSizeGBuffer);
+
+        CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref albedoRT, RenderTextureFormat.ARGB32);
+
+        RenderTexture specularRT = null;
+        CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref specularRT, RenderTextureFormat.ARGB32);
+        // https://docs.unity3d.com/Manual/RenderTech-DeferredShading.html
+        // RT2, ARGB2101010 World space normal buffer, 
+        CreateCubemapAtalsRenderTarget(cubemapSizeGBuffer, cubemapNum, ref normalRT, RenderTextureFormat.ARGB2101010);
 
         float unitUVSize = 1.0f / cubemapNum;
-        albedoCubemapRT_256= new RenderTexture(atlasWidth, atlasHeight, 0, RenderTextureFormat.ARGB32);
-        albedoCubemapRT_256.enableRandomWrite = true;
-        albedoCubemapRT_256.Create();
+        int cubemapIndex = 0;
 
         Camera cubemapCamera = (Camera)Camera.Instantiate(Camera.main, new Vector3(0, 0, 0),
         Quaternion.FromToRotation(new Vector3(0, 0, 0), new Vector3(0, 0, 1)));
+        //cubemapCamera.renderingPath = RenderingPath.DeferredShading;
+
         cubemapCamera.fieldOfView = 90;
-        cubemapCamera.targetTexture = albedoCubemapRT_256;
-        cubemapCamera.clearFlags = CameraClearFlags.Color;
+        cubemapCamera.targetTexture = albedoRT;
+        RenderBuffer[] TargetBuffers = { albedoRT.colorBuffer, specularRT.colorBuffer , normalRT.colorBuffer };
+        //cubemapCamera.SetTargetBuffers(TargetBuffers, albedoRT.depthBuffer);
+        cubemapCamera.clearFlags = CameraClearFlags.Depth;
         cubemapCamera.GetComponent<AudioListener>().enabled = false;
-        foreach (Transform t in CubemapCameraPosition)
+        Graphics.SetRenderTarget(TargetBuffers, albedoCubemapRT_64.depthBuffer);
+        foreach (Vector3 cameraPos in cubemapCameraPositions)
         {
             for (int faceIndex = 0; faceIndex < 6; faceIndex++) {
-                cubemapCamera.transform.position = t.position;
-                cubemapCamera.transform.LookAt(t.position + cubemapCameraStructs[faceIndex].lookAt, cubemapCameraStructs[faceIndex].up);
+                cubemapCamera.transform.position = cameraPos;
+                cubemapCamera.transform.LookAt(cameraPos + cubemapCameraStructs[faceIndex].lookAt, cubemapCameraStructs[faceIndex].up);
                 cubemapCamera.rect = new Rect(new Vector2(faceIndex * 1.0f / 6.0f, cubemapIndex * 1.0f / cubemapNum), new Vector2(1.0f / 6.0f, unitUVSize));
+                Debug.Log("Actual rendering path:" + cubemapCamera.actualRenderingPath);
                 cubemapCamera.Render();
             }
             cubemapIndex++; 
         }
-
-        //CreateAtlasFromCubemaps(cubemaps_256, cubemapNum_256, cubemapSize, RenderTextureFormat.ARGB32, ref albedoCubemapRT_256);
-
     }
 }
